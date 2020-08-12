@@ -1,12 +1,45 @@
-var express = require('express');
-var ejsLayouts = require('express-ejs-layouts');
-var app = express();
+require('dotenv').config()
+const express = require('express')
+const ejsLayouts = require('express-ejs-layouts')
+const app = express()
+const multer = require('multer')
+const upload = multer({dest: './uploads'})
+const cloudinary = require('cloudinary')
+const db = require('./models')
 
-app.set('view engine', 'ejs');
-app.use(ejsLayouts);
 
-app.get('/', function(req, res) {
-  res.render('index');
-});
+app.set('view engine', 'ejs')
+app.use(ejsLayouts)
+app.use(express.static('static'))
+cloudinary.config(process.env.CLOUDINARY_URL)
 
-app.listen(3000);
+app.get('/', (req, res) => {
+  res.render('index')
+})
+
+app.post('/', upload.single('myFile'), (req, res) => {
+  cloudinary.uploader.upload(req.file.path, (result) => {
+    res.send(result)
+    db.cloudpic.findOrCreate({
+      where: { url: result.url }
+    })
+    .then( () => {
+      res.redirect('/show')
+    })
+    .catch( err => {
+      console.log('Error:', err)
+    })
+  })
+})
+
+app.get('/show', (req, res) => {
+  db.cloudpic.findAll()
+  .then(myPics => {
+    res.render('show', { myPics })
+  })
+  .catch(err => {
+    console.log('Error:', err)
+  })
+})
+
+app.listen(3000)
